@@ -54,40 +54,55 @@ export default function InputKonsumen() {
 
   // 🔹 Fetch pasar
   useEffect(() => {
-    const fetchPasar = async () => {
-      try {
-        const res = await fetch("/api/pasar");
-        const data = await res.json();
-        setPasarList(data || []);
-      } catch (err) {
-        console.error("Error fetch pasar:", err);
-      }
-    };
+  const fetchPasar = async () => {
+    try {
+      const res = await fetch("https://api.tahupakbgmagelang.xyz/api/pasar");
 
-    fetchPasar();
-  }, []);
+      if (!res.ok) {
+        throw new Error("Gagal fetch pasar");
+      }
+
+      const result = await res.json();
+
+      // ✅ ambil data yang benar
+      setPasarList(result.data || []);
+      
+    } catch (err) {
+      console.error("Error fetch pasar:", err);
+    }
+  };
+
+  fetchPasar();
+}, []);
 
   // 🔹 Fetch pelanggan
   useEffect(() => {
-    if (!selectedPasar) return;
+  if (!selectedPasar) return;
 
-    const fetchPelanggan = async () => {
-      try {
-        setLoadingData(true);
-        const res = await fetch(
-          `/api/pelanggan?id_pasar=${selectedPasar.id_pasar}`
-        );
-        const data = await res.json();
-        setPelangganList(data || []);
-      } catch (err) {
-        console.error("Error fetch pelanggan:", err);
-      } finally {
-        setLoadingData(false);
-      }
-    };
+  const fetchPelanggan = async () => {
+    try {
+      setLoadingData(true);
 
-    fetchPelanggan();
-  }, [selectedPasar]);
+      const res = await fetch(
+        `https://api.tahupakbgmagelang.xyz/api/pelanggan?id_pasar=${selectedPasar.id_pasar}`
+      );
+
+      if (!res.ok) throw new Error("Gagal fetch");
+
+      const result = await res.json();
+
+      // ✅ ambil data yang benar
+      setPelangganList(result.data || []);
+
+    } catch (err) {
+      console.error("Error fetch pelanggan:", err);
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  fetchPelanggan();
+}, [selectedPasar]);
 
  const handleChange = (
   id: number,
@@ -149,7 +164,7 @@ export default function InputKonsumen() {
 
     console.log("DATA KIRIM:", dataToSend); // 🔍 debug
 
-    const res = await fetch("/api/transaksi", {
+    const res = await fetch("https://api.tahupakbgmagelang.xyz/api/transaksi", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(dataToSend),

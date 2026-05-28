@@ -23,13 +23,19 @@ export default function InputProduksi() {
   const router = useRouter();
 
   useEffect(() => {
-    fetch("/api/getpelanggan")
-      .then((res) => res.json())
-      .then((data) => {
-        setPelanggan(Array.isArray(data) ? data : []);
-      })
-      .catch(() => setPelanggan([]));
-  }, []);
+  fetch("https://api.tahupakbgmagelang.xyz/api/getpelanggan")
+    .then((res) => {
+      if (!res.ok) throw new Error("Fetch gagal");
+      return res.json();
+    })
+    .then((res) => {
+      setPelanggan(res.data || []);
+    })
+    .catch((err) => {
+      console.error(err);
+      setPelanggan([]);
+    });
+}, []);
 
   const handleChange = (
     id: number,
@@ -64,7 +70,7 @@ export default function InputProduksi() {
             item.goreng_kencong > 0
         );
 
-      const res = await fetch("/api/postjumlahproduksi", {
+      const res = await fetch("https://api.tahupakbgmagelang.xyz/api/postjumlahproduksi", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

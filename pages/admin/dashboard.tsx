@@ -54,24 +54,34 @@ export default function Dashboard() {
 
   /* ================= FETCH ================= */
 
-  useEffect(() => {
-    fetch("/api/gettransaksi")
-      .then((r) => r.json())
-      .then((d) => setTransaksi(d || []));
-  }, []);
+useEffect(() => {
+  fetch("https://api.tahupakbgmagelang.xyz/api/gettransaksi")
+    .then((res) => {
+      if (!res.ok) {
+        throw new Error("Network response error");
+      }
+      return res.json();
+    })
+    .then((res) => {
+      setTransaksi(res.data || []);
+    })
+    .catch((err) => {
+      console.error("Fetch error:", err);
+    });
+}, []);
 
   useEffect(() => {
-    fetch("/api/getjumlahproduksi")
+    fetch("https://api.tahupakbgmagelang.xyz/api/getjumlahproduksi")
       .then((r) => r.json())
       .then((d) => setProduksi(d?.data || []));
   }, []);
 
   useEffect(() => {
-    fetch("/api/getstatuslunas")
+    fetch("https://api.tahupakbgmagelang.xyz/api/getsatuslunas")
       .then((r) => r.json())
       .then((d) => setLunas(d?.data || []));
 
-    fetch("/api/getstatusbelumlunas")
+    fetch("https://api.tahupakbgmagelang.xyz/api/getstatubelumlunas")
       .then((r) => r.json())
       .then((d) => setBelumLunas(d?.data || []));
   }, []);
