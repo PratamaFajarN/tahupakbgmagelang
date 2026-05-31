@@ -2,7 +2,6 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
-
 import dayjs from "dayjs";
 import "dayjs/locale/id";
 
@@ -24,198 +23,191 @@ interface FormItem {
 
 export default function InputKonsumen() {
   const router = useRouter();
-  
 
   const [pasarList, setPasarList] = useState<Pasar[]>([]);
   const [selectedPasar, setSelectedPasar] = useState<Pasar | null>(null);
   const [pelangganList, setPelangganList] = useState<Pelanggan[]>([]);
   const [formData, setFormData] = useState<Record<number, FormItem>>({});
+  const [transaksiList, setTransaksiList] = useState<any[]>([]);
+
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
 
-  const [role, setRole] = useState<string | null>(null);
-    
-    const [today, setToday] = useState("");
-    
-  
-    // 🔐 AUTH
-    useEffect(() => {
-  const isLoggedIn = localStorage.getItem("isLoggedIn");
-  const roleFromStorage = localStorage.getItem("role");
+  const [today, setToday] = useState("");
 
-  if (!isLoggedIn || !roleFromStorage) {
-    router.replace("/Login");
-    return; // 🔥 penting
-  }
+  // 🔐 AUTH
+  useEffect(() => {
+    const isLoggedIn = localStorage.getItem("isLoggedIn");
+    const role = localStorage.getItem("role");
 
-  setRole(roleFromStorage);
-  setToday(dayjs().locale("id").format("dddd, D MMMM YYYY"));
-}, [router]);
+    if (!isLoggedIn || !role) {
+      router.replace("/Login");
+      return;
+    }
+
+    setToday(dayjs().locale("id").format("dddd, D MMMM YYYY"));
+  }, [router]);
 
   // 🔹 Fetch pasar
   useEffect(() => {
-  const fetchPasar = async () => {
-    try {
-      const res = await fetch("https://api.tahupakbgmagelang.xyz/api/pasar");
+    fetch("https://api.tahupakbgmagelang.xyz/api/pasar")
+      .then((res) => res.json())
+      .then((res) => setPasarList(res.data || []))
+      .catch(console.error);
+  }, []);
 
-      if (!res.ok) {
-        throw new Error("Gagal fetch pasar");
-      }
-
-      const result = await res.json();
-
-      // ✅ ambil data yang benar
-      setPasarList(result.data || []);
-      
-    } catch (err) {
-      console.error("Error fetch pasar:", err);
-    }
-  };
-
-  fetchPasar();
-}, []);
+  // 🔹 Fetch transaksi (UNTUK PREFILL)
+  useEffect(() => {
+    fetch("https://api.tahupakbgmagelang.xyz/api/gettransaksi")
+      .then((res) => res.json())
+      .then((res) => setTransaksiList(res.data || []))
+      .catch(console.error);
+  }, []);
 
   // 🔹 Fetch pelanggan
   useEffect(() => {
-  if (!selectedPasar) return;
+    if (!selectedPasar) return;
 
-  const fetchPelanggan = async () => {
-    try {
-      setLoadingData(true);
+    setLoadingData(true);
 
-      const res = await fetch(
-        `https://api.tahupakbgmagelang.xyz/api/pelanggan?id_pasar=${selectedPasar.id_pasar}`
-      );
+    fetch(
+      `https://api.tahupakbgmagelang.xyz/api/pelanggan?id_pasar=${selectedPasar.id_pasar}`
+    )
+      .then((res) => res.json())
+      .then((res) => setPelangganList(res.data || []))
+      .catch(console.error)
+      .finally(() => setLoadingData(false));
+  }, [selectedPasar]);
 
-      if (!res.ok) throw new Error("Gagal fetch");
+  // 🔥 PREFILL DATA (ambil transaksi terakhir)
+  useEffect(() => {
+    if (!selectedPasar || transaksiList.length === 0) return;
 
-      const result = await res.json();
+    const filtered = transaksiList.filter(
+      (t) => t.id_pasar === selectedPasar.id_pasar
+    );
 
-      // ✅ ambil data yang benar
-      setPelangganList(result.data || []);
+    const latestMap = new Map();
 
-    } catch (err) {
-      console.error("Error fetch pelanggan:", err);
-    } finally {
-      setLoadingData(false);
-    }
-  };
+    filtered.forEach((t) => {
+      const prev = latestMap.get(t.id_pelanggan);
+      if (!prev || new Date(t.tanggal) > new Date(prev.tanggal)) {
+        latestMap.set(t.id_pelanggan, t);
+      }
+    });
 
-  fetchPelanggan();
-}, [selectedPasar]);
+    const newForm: Record<number, FormItem> = {};
 
- const handleChange = (
-  id: number,
-  field: keyof FormItem,
-  value: string
-) => {
-  setFormData((prev) => {
-    const current = prev[id] || {
-      pembayaran: 0,
-      status: "Belom Lunas",
-      catatan: "",
-    };
+    latestMap.forEach((t) => {
+      newForm[t.id_pelanggan] = {
+        pembayaran: t.pembayaran || 0,
+        status: t.status === "Lunas" ? "Lunas" : "Belom Lunas",
+        catatan: t.keterangan || "",
+      };
+    });
 
-    return {
+    setFormData(newForm);
+  }, [selectedPasar, transaksiList]);
+
+  // 🔹 Handle change
+  const handleChange = (
+    id: number,
+    field: keyof FormItem,
+    value: string
+  ) => {
+    setFormData((prev) => ({
       ...prev,
       [id]: {
-        ...current,
-        [field]:
-          field === "pembayaran" ? Number(value) : value,
+        ...prev[id],
+        pembayaran:
+          field === "pembayaran"
+            ? Number(value || 0)
+            : prev[id]?.pembayaran || 0,
+        status:
+          field === "status"
+            ? (value as "Lunas" | "Belom Lunas")
+            : prev[id]?.status || "Belom Lunas",
+        catatan:
+          field === "catatan"
+            ? value
+            : prev[id]?.catatan || "",
       },
-    };
-  });
-};
+    }));
+  };
 
   // 🔹 Submit
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (!selectedPasar) {
-    alert("⚠️ Pilih pasar dulu!");
-    return;
-  }
+    const role = localStorage.getItem("role");
 
-  // 🔥 ambil langsung dari localStorage (lebih aman dari state)
-  const roleFromStorage = localStorage.getItem("role");
+    if (!selectedPasar) return alert("Pilih pasar!");
+    if (!role) return alert("Login ulang!");
 
-  if (!roleFromStorage) {
-    alert("⚠️ User tidak ditemukan, login ulang!");
-    router.push("/Login");
-    return;
-  }
+    const dataToSend = Object.keys(formData).map((id) => ({
+      id_pelanggan: Number(id),
+      pembayaran: formData[Number(id)].pembayaran || 0,
+      status: formData[Number(id)].status,
+      keterangan: formData[Number(id)].catatan,
+      tanggal: new Date().toISOString().split("T")[0],
+      nama_user: role,
+    }));
 
-  const dataToSend = Object.keys(formData).map((id) => ({
-    id_pelanggan: Number(id),
-    pembayaran: formData[Number(id)].pembayaran || 0,
-    status: formData[Number(id)].status || "Belum",
-    keterangan: formData[Number(id)].catatan || "",
-    tanggal: new Date().toISOString().split("T")[0],
-    nama_user: roleFromStorage, // ✅ FIX UTAMA
-  }));
+    if (dataToSend.length === 0)
+      return alert("Isi minimal 1 data!");
 
-  if (dataToSend.length === 0) {
-    alert("⚠️ Isi minimal 1 data!");
-    return;
-  }
+    try {
+      setLoading(true);
 
-  try {
-    setLoading(true);
+      await fetch(
+        "https://api.tahupakbgmagelang.xyz/api/transaksi",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(dataToSend),
+        }
+      );
 
-    console.log("DATA KIRIM:", dataToSend); // 🔍 debug
-
-    const res = await fetch("https://api.tahupakbgmagelang.xyz/api/transaksi", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(dataToSend),
-    });
-
-    if (!res.ok) throw new Error();
-
-    alert("✅ Data berhasil disimpan");
-    router.push("/admin/dashboard");
-  } catch (err) {
-    console.error(err);
-    alert("❌ Gagal simpan data");
-  } finally {
-    setLoading(false);
-  }
-};
+      alert("Berhasil disimpan");
+      router.push("/admin/dashboard");
+    } catch {
+      alert("Gagal simpan");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
 
-      {/* NAVBAR */}
-      <nav className="bg-black border-b border-yellow-500/20">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between">
-          <Link href="/admin/dashboard" className="text-xl font-bold text-yellow-400">
-            Dashboard
-          </Link>
-        </div>
+      {/* NAV */}
+      <nav className="bg-black p-4">
+        <Link href="/admin/dashboard" className="text-yellow-400 font-bold">
+          Dashboard
+        </Link>
       </nav>
 
       <div className="p-6 space-y-6">
 
-        {/* PILIH PASAR */}
-        <div className="bg-gray-800 border border-yellow-500/20 p-6 rounded-xl">
-          <h1 className="text-2xl font-bold text-yellow-400">
-            Input Pembayaran
+        {/* PASAR */}
+        <div className="bg-gray-800 p-6 rounded-xl">
+          <h1 className="text-yellow-400 text-xl font-bold">
+            Input Pembayaran - {today}
           </h1>
-         
+
           <select
-            className="mt-4 w-full bg-gray-900 border border-gray-700 px-3 py-2 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none"
+            className="mt-4 w-full bg-gray-900 p-2 rounded"
             onChange={(e) => {
               const selected = pasarList.find(
-                (item) => item.id_pasar === Number(e.target.value)
+                (p) => p.id_pasar === Number(e.target.value)
               );
               setSelectedPasar(selected || null);
-              setFormData({});
             }}
           >
-            <option value="">-- Pilih Pasar --</option>
-            {pasarList.map((item) => (
-              <option key={item.id_pasar} value={item.id_pasar}>
-                {item.Nama_Pasar}
+            <option value="">Pilih Pasar</option>
+            {pasarList.map((p) => (
+              <option key={p.id_pasar} value={p.id_pasar}>
+                {p.Nama_Pasar}
               </option>
             ))}
           </select>
@@ -223,33 +215,27 @@ export default function InputKonsumen() {
 
         {/* FORM */}
         {selectedPasar && (
-          <div className="bg-gray-800 border border-yellow-500/20 p-6 rounded-xl">
-
-            <h2 className="text-xl font-bold text-yellow-400 mb-4">
-              Pasar: {selectedPasar.Nama_Pasar}
+          <div className="bg-gray-800 p-6 rounded-xl">
+            <h2 className="text-yellow-400 font-bold mb-4">
+              {selectedPasar.Nama_Pasar}
             </h2>
 
             {loadingData ? (
-              <div className="text-center text-gray-400 animate-pulse">
-                Loading pelanggan...
-              </div>
+              <p>Loading...</p>
             ) : (
               <form onSubmit={handleSubmit}>
-                <div className="flex flex-col gap-4">
+                <div className="space-y-4">
 
                   {pelangganList.map((p) => (
-                    <div
-                      key={p.id_pelanggan}
-                      className="border border-gray-700 p-4 rounded-xl bg-gray-900 hover:border-yellow-400 transition"
-                    >
-                      <p className="font-semibold text-yellow-300">
+                    <div key={p.id_pelanggan} className="bg-gray-900 p-4 rounded">
+
+                      <p className="text-yellow-300 font-semibold">
                         {p.Nama_Pelanggan}
                       </p>
 
                       <input
                         type="number"
-                        placeholder="Nominal"
-                        className="mt-2 w-full bg-gray-800 border border-gray-700 px-3 py-2 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none"
+                        value={formData[p.id_pelanggan]?.pembayaran || ""}
                         onChange={(e) =>
                           handleChange(
                             p.id_pelanggan,
@@ -257,11 +243,14 @@ export default function InputKonsumen() {
                             e.target.value
                           )
                         }
+                        className="w-full mt-2 p-2 bg-gray-800 rounded"
                       />
 
                       <select
-                        className="mt-2 w-full bg-gray-800 border border-gray-700 px-3 py-2 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none"
-                        defaultValue="Belum"
+                        value={
+                          formData[p.id_pelanggan]?.status ||
+                          "Belom Lunas"
+                        }
                         onChange={(e) =>
                           handleChange(
                             p.id_pelanggan,
@@ -269,15 +258,18 @@ export default function InputKonsumen() {
                             e.target.value
                           )
                         }
+                        className="w-full mt-2 p-2 bg-gray-800 rounded"
                       >
                         <option value="Lunas">Lunas</option>
-                        <option value="Belum">Belum</option>
+                        <option value="Belom Lunas">
+                          Belom Lunas
+                        </option>
                       </select>
-                     
 
                       <textarea
-                        placeholder="Catatan..."
-                        className="mt-2 w-full bg-gray-800 border border-gray-700 px-3 py-2 rounded-lg focus:ring-2 focus:ring-yellow-400 outline-none"
+                        value={
+                          formData[p.id_pelanggan]?.catatan || ""
+                        }
                         onChange={(e) =>
                           handleChange(
                             p.id_pelanggan,
@@ -285,14 +277,16 @@ export default function InputKonsumen() {
                             e.target.value
                           )
                         }
+                        className="w-full mt-2 p-2 bg-gray-800 rounded"
                       />
+
                     </div>
                   ))}
 
                   <button
                     type="submit"
+                    className="bg-yellow-400 text-black px-4 py-2 rounded"
                     disabled={loading}
-                    className="bg-yellow-400 text-black font-bold px-4 py-3 rounded-lg hover:bg-yellow-500 transition disabled:opacity-50"
                   >
                     {loading ? "Menyimpan..." : "Simpan"}
                   </button>
@@ -300,7 +294,6 @@ export default function InputKonsumen() {
                 </div>
               </form>
             )}
-
           </div>
         )}
 
