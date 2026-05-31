@@ -172,7 +172,9 @@ useEffect(() => {
       </div>
 
       {/* ================= TRANSAKSI ================= */}
-      <Section title={`Transaksi - ${today}`}>
+      <Section title={   <span className="text-yellow-400 font-bold">
+      {`TRANSAKI - ${today}`}
+    </span>}>
 
         <div className="grid gap-3 md:hidden">
           {transaksi.map((item, i) => (
@@ -235,7 +237,9 @@ useEffect(() => {
   </div>
 )}
       {/* ================= PRODUKSI (SAMA STYLE TRANSAKSI) ================= */}
-      <Section title={`JUMLAH MUATAN TAHU HARI INI - ${today}`}>
+      <Section title={   <span className="text-yellow-400 font-bold">
+      {`JUMLAH MUATAN TAHU HARI INI - ${today}`}
+    </span>}>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 
