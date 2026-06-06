@@ -4,7 +4,10 @@ export default class Document extends NextDocument {
   render() {
     return (
       <Html lang="en">
-        <Head></Head>
+        <Head>
+          <meta name="theme-color" content="#000000" />
+          <link rel="manifest" href="/manifest.json" />
+        </Head>
         <body>
           <Main />
           <NextScript />
